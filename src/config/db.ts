@@ -14,19 +14,28 @@ const requiresSSL = (url: string): boolean => {
   return url.includes('sslmode=require') || url.includes('neon.tech');
 };
 
+const stripSslFromUrl = (url: string): string => {
+  return url
+    .replace(/[?&]sslmode=[^&]*/g, '')
+    .replace(/[?&]ssl=[^&]*/g, '');
+};
+
 export const createDatabaseOptions = (): DataSourceOptions => {
   const databaseUrl = getDatabaseUrl();
+  const useSSL = requiresSSL(databaseUrl);
+  const sanitizedUrl = useSSL ? databaseUrl : stripSslFromUrl(databaseUrl);
 
   return {
     type: 'postgres',
-    url: databaseUrl,
+    url: sanitizedUrl,
     synchronize: true,
     logging: false,
     entities: databaseEntities,
     extra: {
       connectionTimeoutMillis: 30000,
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     },
-    ssl: requiresSSL(databaseUrl) ? { rejectUnauthorized: false } : false,
+    ssl: useSSL ? { rejectUnauthorized: false } : false,
     schema: 'public',
   };
 };
