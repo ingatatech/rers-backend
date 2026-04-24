@@ -11,29 +11,36 @@ const getDatabaseUrl = (): string => {
 };
 
 const requiresSSL = (url: string): boolean => {
-  return url.includes('sslmode=require') || url.includes('neon.tech');
+  return url.includes('neon.tech');
 };
 
-const stripSslFromUrl = (url: string): string => {
-  return url
-    .replace(/[?&]sslmode=[^&]*/g, '')
-    .replace(/[?&]ssl=[^&]*/g, '');
+const buildUrl = (rawUrl: string, useSSL: boolean): string => {
+  try {
+    const u = new URL(rawUrl);
+    u.searchParams.delete('sslmode');
+    u.searchParams.delete('ssl');
+    u.searchParams.delete('channel_binding');
+    if (useSSL) {
+      u.searchParams.set('sslmode', 'require');
+    }
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
 };
 
 export const createDatabaseOptions = (): DataSourceOptions => {
   const databaseUrl = getDatabaseUrl();
   const useSSL = requiresSSL(databaseUrl);
-  const sanitizedUrl = useSSL ? databaseUrl : stripSslFromUrl(databaseUrl);
 
   return {
     type: 'postgres',
-    url: sanitizedUrl,
+    url: buildUrl(databaseUrl, useSSL),
     synchronize: true,
     logging: false,
     entities: databaseEntities,
     extra: {
       connectionTimeoutMillis: 30000,
-      ssl: useSSL ? { rejectUnauthorized: false } : false,
     },
     ssl: useSSL ? { rejectUnauthorized: false } : false,
     schema: 'public',
